@@ -6,6 +6,7 @@ const bcrypt=require('bcrypt');
 const fs =require('fs');
 const fsextra=require('fs-extra');
 const path = require('path');
+require('dotenv/config');
 let beforeEditDoc;
 //requiring all the files,modules in order to achieve or DB panel application
 
@@ -463,7 +464,7 @@ app.use('/schemaUploads',express.static('schemaUploads'))
 
 // Running the server
 const run = async () => {
-  await app.listen(8080, () => console.log(`Example app listening on port 8080!`))
+  await app.listen(process.env.EXPRESS_SERVER_PORT, () => console.log(`Example app listening on port ${process.env.EXPRESS_SERVER_PORT}!`))
   if(fs.readdirSync('./models').length === 0){
     console.log(chalk.blue('models directory is empty'));
     await startMyModelFunction();//auto.run() with in function if this function is called crud throws errors

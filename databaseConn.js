@@ -1,8 +1,10 @@
+require('dotenv/config');
+
 const { Sequelize } = require('sequelize');
 try{
-    const sequelize = new Sequelize('anjoybhaipanel', 'root', 'dotlines', {
-    host: 'localhost',
-    dialect: 'mysql',
+    const sequelize = new Sequelize(process.env.DBNAME, process.env.DBUSER, process.env.DBPASSWORD, {
+    host: process.env.DBHOST,
+    dialect: process.env.DBDIALECT,
     logging:false
     
   });
