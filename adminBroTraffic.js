@@ -6,19 +6,37 @@ const bcrypt=require('bcrypt');
 const fs =require('fs');
 const fsextra=require('fs-extra');
 const path = require('path');
-
-let beforeEditDoc,afterEditDoc;
+let beforeEditDoc;
+//requiring all the files,modules in order to achieve or DB panel application
 
 
 // express server definition
-const app = express()
-// router = AdminBroExpress.buildRouter(adminBro, router)
-// let testRoute=app.get('/api/test',(req,res)=>{
-//   res.send('Hello Zizu,endpoint /api/test');
-// })
-
-
+const app = express()//The express server initialization
+/*
+  startMyModelFunction,self implemented asynchronous function
+  basically it requires constructModels.js under root folder--./constructModels
+  as we will be using "THE SEQUELIZE" ORM(object relation mapping ) to communicate with the 
+  mysql database
+  constructModel.js works the aid of a npm-package(sequelize-auto).In order to use sequelize-auto
+  we have to keep in mind that WE SHOULD NEVER MODIFY a given model from the (Node js) environment.
+  It is recommended to make any changes(if needed) in the database schemas from other database client
+  for example cmd-mysql 
+  In constructModels.js we configure the db-connections and set the options as required,in our example
+  we used to parameters "directory"-->specifying where the auto-sequelize write 
+  equivalent object relational model from the db schema and store to, and "additional" field
+  to specify that we will be using timestamps as well.(Note timestamps fields createdAt and updatedAt)
+  should be present in the given database tables
+  Important NOTE: A thorough description is specified inside the databaseConn.js as this file
+  is used almost everywhere in this project..it mainly establishes connetion with the database
+  in our case we are using mysql database 
+*/
 const startMyModelFunction=async()=>{
+  /*
+  This function will only be executed if ./models folder is empty
+  The 'cstModel.auto.run() works in the following manner'
+  1)gets connected with our specified db,constucts the Sequelize ORM model
+  from db schemas
+  */
 try{
     console.log(chalk.green.inverse('Print thhe cstModel info--'));
     console.log('typeof cstModel ',typeof cstModel);
@@ -31,6 +49,21 @@ try{
 }
 
 }
+////////////////////////////////////////////////////////////////////////////////////
+/*
+Step 2,we will be using the initializeModels function,Note all our functions
+are asynchronous for the ease of understanding and handling promises
+initializeModels function will be called after startMyModelFunction
+Once we are sure that ./models folder is not empty we can call the 
+INITMODELS function with our db instance to initiallize our models
+Curremnt we have The models,
+1)mypanel,this is the main table where all the venture dbs' metrics are resided
+2)user,all the role based users credentials for the admin panel
+3)paneltracker table which simply keeps the logs of the crud operations
+mainly(edit,create,delete,bulkDelete)and the corresponding user information
+liable for such instuctions
+*/
+/////////////////////////////////////////////////////////////////////////////////////
 const initializeModels=async()=>{
   try{
   const INITMODELS=require('./models/init-models');
@@ -42,18 +75,70 @@ const initializeModels=async()=>{
   }
 }
 
+/*
+MOST IMPORTANT PART OF OUR DB-PANEL application
+First thing to keep in mind that before calling this function
+we have to make sure that our prerequisite functions(startMyModelFunctions and initializeModels)
+gets executed without any error,Please note that we might face an error(temporarily) from our very first and second method
+if ./models is empty,nothing to worry about!our application handles it with great certainty,
+the cstModel.auto will be executed,which will automatically construct our mapping model,given that
+our database instance is configured correctly,after a while once the ./models gets populated we we not get 
+any more error from these blocks.Now lets begin understanding our core function "passConfigToAdminBro"
+1)we require all the relevant modules admin-bro,plugin @admin-bro/express.
+2)Then we have add an one line "specified by the documentation of admin-bro to enable role-based feature"
+of our panel application"
+--  const canModifyUsers = ({ currentAdmin }) => currentAdmin && currentAdmin.role === 'admin'--
+3)Now  We have to tell AdminBro that we will manage sequelize resources with it
+--  AdminBro.registerAdapter(require('@admin-bro/sequelize'))  --
+4)Now we have to configure the core options of the Adminbro package...
+The basic structure will look like below
+const adminBro = new AdminBro({
+ 
+  resources[//specifies all the tables from db present in ./models
+   {resource:db.models.mypanel,//name of the resource/db.models.table_name
+    options:{//specify how our resource showld be viewed and interact with the admins/users
+      navigation:{}//to create an icon and label of our resource
+      properties:{},//our db.models.table_name.tablefields behaviour and display can be manipulated from here
+      listProperties{},//specifies which table field will be shown once we want to display the resource
+      
+      actions:{//Now actions are very important,in short every crud operations in admin-bro introduces 
+        before and after hooks and we can therefore manipulate the incoming request and context
+        and send our desired response
+        Note that I will be giving the reference at the end for more detailed understanding   
+        new:{
+          before:{}after:{}
+        },
+        edit:{
+          before:{}after:{}
+        }
+        ...
+      }
+    }
+    
+  }
+ ],
+
+ rootPath: '/admin',///specifying the root path(in our case "localhost:8080/admin")
+  loginPath: '/admin/login',
+  logoutPath:'/admin/logout',
+  branding: {
+    companyName: 'Dotlines_DB_PANEL',//The brandming of our company
+    //additional features are available in the docs which i will be attaching below
+  },
+})
+REFERENCES:https://adminbro.com/
+*/
+
 
 const passConfigToAdminBro=async()=>{
 // Pass all configuration settings to AdminBro
 try{
   const {default:AdminBro, useCurrentAdmin} = require('admin-bro')
   const AdminBroExpressjs = require('@admin-bro/express')
-  const uploadFeature = require('@admin-bro/upload')
+  
   // We have to tell AdminBro that we will manage sequelize resources with it
   const canModifyUsers = ({ currentAdmin }) => currentAdmin && currentAdmin.role === 'admin'
-  AdminBro.registerAdapter(require('@admin-bro/sequelize'))
-
-  
+  AdminBro.registerAdapter(require('@admin-bro/sequelize'))  
 
 const adminBro = new AdminBro({
   resources: [
@@ -95,8 +180,6 @@ const adminBro = new AdminBro({
               
               
               const{CONFIG_FILE_LOCATION,SCHEMA_FILE_LOCATION, ...otherParams}=request.payload
-              console.log(chalk.red.inverse('before hook-->  new action ----->>>   '),request.payload);
-              //console.log('schema_file_location--->  ',SCHEMA_FILE_LOCATION)
               context.CONFIG_FILE_LOCATION=CONFIG_FILE_LOCATION
               context.SCHEMA_FILE_LOCATION=SCHEMA_FILE_LOCATION
               const schemas=[];
@@ -104,18 +187,14 @@ const adminBro = new AdminBro({
   
               for(let i =0;i<keys.length;i++){
                 if(keys[i].startsWith('SCHEMA_FILE_LOCATION')){
-                  //console.log('Schema files -->',keys[i]);
                   schemas.push(request.payload[keys[i]])
                 }
               }
-              //console.log(schemas);
               if(schemas.length!=0){
                 context.SCHEMA_FILE_LOCATION=schemas;
               }
               
-              console.log('context.SCHEMA_FILE_LOCATION--> ',context.SCHEMA_FILE_LOCATION)
-              console.log('context.CONFIG_FILE_LOCATION--> ',context.CONFIG_FILE_LOCATION)
-              //context.CONFIG_FILE_LOCATION.path=path.join(__dirname,'public',CONFIG_FILE_LOCATION.name);
+             
               return{
                 ...request,
                 payload:otherParams,
@@ -132,7 +211,7 @@ const adminBro = new AdminBro({
             const {record,CONFIG_FILE_LOCATION,SCHEMA_FILE_LOCATION}=context
             if(record.isValid()){
               if(CONFIG_FILE_LOCATION){
-                  const filePath=path.join('uploads',record.id().toString(),CONFIG_FILE_LOCATION.name)
+                  const filePath=path.join('uploads',record.id().toString(),Date.now().toString(),CONFIG_FILE_LOCATION.name)
                   await fs.promises.mkdir(path.dirname(filePath),{recursive:true})
                   await fsextra.move(CONFIG_FILE_LOCATION.path,filePath)
                   await record.update({CONFIG_FILE_NAME:`/${filePath}`})
@@ -140,7 +219,7 @@ const adminBro = new AdminBro({
                 if(SCHEMA_FILE_LOCATION){
                    let loc='';
                    for(let i=0;i<SCHEMA_FILE_LOCATION.length;i++){
-                    const filePath=path.join('schemaUploads',record.id().toString(),SCHEMA_FILE_LOCATION[i].name)
+                    const filePath=path.join('schemaUploads',record.id().toString(),Date.now().toString(),SCHEMA_FILE_LOCATION[i].name)
                     await fs.promises.mkdir(path.dirname(filePath),{recursive:true})
                     await fsextra.move(SCHEMA_FILE_LOCATION[i].path,filePath)
                     loc=loc+`/${filePath}`+';'
@@ -160,12 +239,13 @@ const adminBro = new AdminBro({
         },
         edit: {
            before:async(request,context)=>{
+            if(request.method==='get'){
+              beforeEditDoc=context.record.params;
+            } 
             
             if(request.method==='post'){
-              console.log(chalk.white.inverse('BEFORE action EDIT POST'));
               const{CONFIG_FILE_LOCATION,SCHEMA_FILE_LOCATION, ...otherParams}=request.payload
-              //console.log(chalk.red.inverse('before hook-->  new action ----->>>   '),request.payload);
-              //console.log('schema_file_location--->  ',SCHEMA_FILE_LOCATION)
+              
               context.CONFIG_FILE_LOCATION=CONFIG_FILE_LOCATION
               context.SCHEMA_FILE_LOCATION=SCHEMA_FILE_LOCATION
               
@@ -174,17 +254,13 @@ const adminBro = new AdminBro({
   
               for(let i =0;i<keys.length;i++){
                 if(keys[i].startsWith('SCHEMA_FILE_LOCATION')){
-                  //console.log('Schema files -->',keys[i]);
                   schemas.push(request.payload[keys[i]])
                 }
               }
-              //console.log(schemas);
               if(schemas.length!=0){
                 context.SCHEMA_FILE_LOCATION=schemas;
               }
-              console.log('context.SCHEMA_FILE_LOCATION--> ',context.SCHEMA_FILE_LOCATION)
-              console.log('context.CONFIG_FILE_LOCATION--> ',context.CONFIG_FILE_LOCATION)
-        
+              
               return{
                 ...request,
                 payload:otherParams,
@@ -196,19 +272,16 @@ const adminBro = new AdminBro({
           
           after: async (response,request,context) => {
 
+
                         
            if(request.method==='post'){
            
             const {record,CONFIG_FILE_LOCATION,SCHEMA_FILE_LOCATION}=context
-            console.log('after----CONFIG_FILE_LOCATION--->  ',CONFIG_FILE_LOCATION);
-            console.log('after----SCHEMA_FILE_LOCATION--->  ',SCHEMA_FILE_LOCATION);
-            console.log('after----typeof  SCHEMA_FILE_LOCATION--->  ',typeof SCHEMA_FILE_LOCATION);
-            
-            
+                      
             
             if(record.isValid()){
               if(CONFIG_FILE_LOCATION){
-                  const filePath=path.join('uploads',record.id().toString(),CONFIG_FILE_LOCATION.name)
+                  const filePath=path.join('uploads',record.id().toString(),Date.now().toString(),CONFIG_FILE_LOCATION.name)
                   await fs.promises.mkdir(path.dirname(filePath),{recursive:true})
                   await fsextra.move(CONFIG_FILE_LOCATION.path,filePath)
                   await record.update({CONFIG_FILE_NAME:`/${filePath}`})
@@ -216,7 +289,7 @@ const adminBro = new AdminBro({
               if(SCHEMA_FILE_LOCATION){
                    let loc='';
                    for(let i=0;i<SCHEMA_FILE_LOCATION.length;i++){
-                    const filePath=path.join('schemaUploads',record.id().toString(),SCHEMA_FILE_LOCATION[i].name)
+                    const filePath=path.join('schemaUploads',record.id().toString(),Date.now().toString(),SCHEMA_FILE_LOCATION[i].name)
                     await fs.promises.mkdir(path.dirname(filePath),{recursive:true})
                     await fsextra.move(SCHEMA_FILE_LOCATION[i].path,filePath)
                     loc=loc+`/${filePath}`+';'
@@ -226,8 +299,8 @@ const adminBro = new AdminBro({
                  
                 }
                 
-            // await db.models.paneltracker.create({ actions:'EDITED', updated_by:context.currentAdmin.user_id,
-            // username: context.currentAdmin.email,venture_name:record.params.Name,previouschangedfield:'New venture record created' });
+            await db.models.paneltracker.create({ actions:'EDITED', updated_by:context.currentAdmin.user_id,
+            username: context.currentAdmin.email,venture_name:record.params.Name,previouschangedfield:JSON.stringify(beforeEditDoc) });
           
             }
 
@@ -256,16 +329,9 @@ const adminBro = new AdminBro({
           },
         },
         bulkDelete: {
-          // before:async(request,context)=>{
-          //   console.log(chalk.blue.inverse('bulkDete called BEFORE hook'))
-          //   console.log(chalk.white.inverse('THe whole request---> '),request);
-          //   return request;
-
-          // },
-          
+        
           after: async (request,context,response) => {
-            console.log(chalk.blue.inverse('bulkDete called after hook'))
-            console.log(chalk.green.inverse('request--->'),request);
+           
             let prevField=request.records;
            
             if(request.notice!=undefined){
@@ -310,13 +376,7 @@ const adminBro = new AdminBro({
         new: {
 
           before: async (request,context) => {
-            console.log(chalk.yellow.inverse('Inside the create new feature'));
-            console.log(chalk.cyan.inverse('executiono of hooks---- before inserting new record'))
-
-            console.log(chalk.green.inverse('printing request.payload'),request.payload);
-            console.log('\\\\\\\\\\\\\\\\\\\\\\\\\\\\');
-
-
+          
             if(request.payload.password) {
               request.payload = {
                 ...request.payload,
@@ -357,36 +417,30 @@ const adminBro = new AdminBro({
     companyName: 'Dotlines_DB_PANEL',
   },
 })
+/*
+Once we are done with the admin-bro options we have to bind/build our router
+to handle admin bro routes,
+Note that we could use our own route if necessary along with the adminbro express routes
+If needed we can  use adminbro documentation for enabling such options
+REFERENCE->adminbro.com
+Another thing to consider is that we are using buildAuthenticateRouter
+for admin-bro builtin authentication routes which works with express-ssession 
+under and the hood and cookies
+*/ 
 // Build and use a router which will handle all AdminBro routes
-// console.log(chalk.white.inverse('typeof AdminBroExpressjs---->>>  '),typeof AdminBroExpressjs);
-// console.log(chalk.white.inverse(' AdminBroExpressjs---->>>  '),AdminBroExpressjs);
 
 let router = express.Router()
 
-/*
-const project = await Project.findOne({ where: { title: 'My Title' } });
-if (project === null) {
-  console.log('Not found!');
-} else {
-  console.log(project instanceof Project); // true
-  console.log(project.title); // 'My Title'
-}
 
-
-
-*/
 
 router=AdminBroExpressjs.buildAuthenticatedRouter(adminBro, {
   authenticate: async (email, password) => {
-    console.log(chalk.greenBright.inverse('From buildAuthenticationRouter authenticate:'));
-    console.log('email----> ',email);
-    console.log('password--->> ',password)
+    
     const user = await db.models.user.findOne({where:{email: email }})
     if (user) {
       const matched = await bcrypt.compare(password, user.encryptedPassword)
       if (matched) {
-         console.log(chalk.yellow.inverse('Credentials matched'));
-         console.log('user-->',user.dataValues.email)
+         
           return user
       }
     }

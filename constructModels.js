@@ -20,22 +20,22 @@ const auto = new SequelizeAuto(db, null, null, options);
 /*auto.run();*/
 
 // const initializeModels=require('./models/init-models');
-// console.log(typeof initializeModels);
-// initializeModels(db);
-// console.log('db.models',db.models);
-selectFrom=async()=>{
-   let docs= await db.models.demosequelizer.findAll({
-        attributes: ['version','founder','office_address']
-    })
-    console.log(chalk.yellow.inverse(JSON.stringify(docs)))
-}
-//selectFrom();
+// // console.log(typeof initializeModels);
+// // initializeModels(db);
+// // console.log('db.models',db.models);
+// selectFrom=async()=>{
+//    let docs= await db.models.demosequelizer.findAll({
+//         attributes: ['version','founder','office_address']
+//     })
+//     console.log(chalk.yellow.inverse(JSON.stringify(docs)))
+// }
+// //selectFrom();
 
-insertInto=async()=>{
-const doc = await db.models.demosequelizer.create({ version: 5, founder:'Shinde',office_addres: 'Dallas,TX' });
-//console.log("Jane's auto-generated ID:", jane.id);
-console.log('Inserted doc--->',doc);
-}
+// insertInto=async()=>{
+// const doc = await db.models.demosequelizer.create({ version: 5, founder:'Shinde',office_addres: 'Dallas,TX' });
+// //console.log("Jane's auto-generated ID:", jane.id);
+// console.log('Inserted doc--->',doc);
+// }
 //insertInto();
 
 module.exports={auto}
